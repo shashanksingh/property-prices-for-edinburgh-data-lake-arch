@@ -1,5 +1,11 @@
 dev-setup:
 	curl -LfO 'https://airflow.apache.org/docs/apache-airflow/2.1.0/docker-compose.yaml'
-	#copy dag's into dag directory
+	mkdir -p ./logs ./plugins
+	echo -e "AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0" > .env
 	docker-compose up airflow-init
+
+dev-run:
 	docker-compose up
+
+dev-destroy:
+	docker-compose down --volumes --rmi all
