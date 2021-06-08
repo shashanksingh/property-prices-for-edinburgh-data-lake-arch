@@ -1,8 +1,8 @@
 dev-setup:
-	$(MAKE) -C airflow dev-setup
+	$(MAKE) -C workflow dev-setup
 
 dev-run:
-	$(MAKE) -C airflow dev-run
+	$(MAKE) -C workflow dev-run
 
 prod-setup:
 	$(MAKE) -C terraform prod-setup
