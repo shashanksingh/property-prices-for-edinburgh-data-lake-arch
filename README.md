@@ -6,3 +6,9 @@ a cloud agnostic data lake , with scraped house prices . Uses terraform, puppet,
 * Phase 3 : ( s3 delta lake )
 * Phase 4: ( airflow jobs write into delta lake )
 * Phase 5: ( Jupiter notebook read )
+
+
+UI Links
+
+    Airflow: localhost:8080
+    Flower: localhost:5555
