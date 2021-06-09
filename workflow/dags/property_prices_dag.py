@@ -3,14 +3,17 @@ Code that goes along with the Airflow tutorial located at:
 https://github.com/apache/airflow/blob/master/airflow/example_dags/tutorial.py
 """
 from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonVirtualenvOperator
 from datetime import datetime, timedelta
 
+import geography_downloader
+import get_rightmove_prices
+import silver_geography_dimension
 
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2015, 6, 1),
+    'start_date': datetime(2021, 6, 1),
     'email': ['airflow@example.com'],
     'email_on_failure': False,
     'email_on_retry': False,
@@ -24,20 +27,26 @@ default_args = {
 
 dag = DAG('property_prices_dag', default_args=default_args, schedule_interval=timedelta(days=1))
 
-geography_downloader = BashOperator(
+geography_downloader = PythonVirtualenvOperator(
     task_id='geography_downloader',
-    bash_command='python geography_downloader.py',
+    python_callable=geography_downloader.run,
+    requirements=["rightmove-webscraper==0.4.0", "requests==2.22.0", "pandas==1.2.4"],
+    system_site_packages=False,
     dag=dag)
 
-get_rightmove_prices = BashOperator(
+get_rightmove_prices = PythonVirtualenvOperator(
     task_id='get_rightmove_prices',
-    bash_command='python get_rightmove_prices.py',
+    bash_command=get_rightmove_prices.run,
+    requirements=["rightmove-webscraper==0.4.0", "requests==2.22.0", "pandas==1.2.4"],
+    system_site_packages=False,
     dag=dag)
 
 #need to put sensors here
-silver_geography_dimension = BashOperator(
+silver_geography_dimension = PythonVirtualenvOperator(
     task_id='silver_geography_dimension',
-    bash_command='python silver_geography_dimension.py',
+    bash_command=silver_geography_dimension.run,
+    requirements=["rightmove-webscraper==0.4.0", "requests==2.22.0", "pandas==1.2.4"],
+    system_site_packages=False,
     dag=dag)
 
 

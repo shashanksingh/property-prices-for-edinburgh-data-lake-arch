@@ -1,7 +1,6 @@
 lxml
 pandas==1.2.4
 numpy==1.20.3
-beautifulsoup4==4.8.1
 requests==2.22.0
 rightmove-webscraper
 pyarrow

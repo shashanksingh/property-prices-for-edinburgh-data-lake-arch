@@ -27,6 +27,7 @@ def remove_zip_file(file_name: str):
         print(f"file doesnt exist {file_name}")
 
 
-download_file(download_geography_data_url, LOCAL_FILE_NAME)
-unzip_file(LOCAL_FILE_NAME)
-remove_zip_file(LOCAL_FILE_NAME)
+def run():
+    download_file(download_geography_data_url, LOCAL_FILE_NAME)
+    unzip_file(LOCAL_FILE_NAME)
+    remove_zip_file(LOCAL_FILE_NAME)
