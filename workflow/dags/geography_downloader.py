@@ -7,6 +7,8 @@ download_geography_data_url = "https://api.os.uk/downloads/v1/products/OpenNames
 LOCAL_FILE_NAME = "opname_csv_gb.zip"
 EXECUTION_DATE = "2021-08-09/"
 DATA_FOLDER = "data/"
+
+
 def download_file(url: str, file_name: str):
     with requests.get(url, stream=True) as r:
         with open(file_name, 'wb') as f:
