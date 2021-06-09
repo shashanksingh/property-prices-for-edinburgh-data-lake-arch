@@ -26,14 +26,19 @@ dag = DAG('property_prices_dag', default_args=default_args, schedule_interval=ti
 
 geography_downloader = BashOperator(
     task_id='geography_downloader',
-    bash_command='python geography_downloader',
+    bash_command='python geography_downloader.py',
     dag=dag)
 
 get_rightmove_prices = BashOperator(
     task_id='get_rightmove_prices',
-    bash_command='python get_rightmove_prices',
+    bash_command='python get_rightmove_prices.py',
+    dag=dag)
+
+#need to put sensors here
+silver_geography_dimension = BashOperator(
+    task_id='silver_geography_dimension',
+    bash_command='python silver_geography_dimension.py',
     dag=dag)
 
 
-
-geography_downloader >> get_rightmove_prices
+geography_downloader >> get_rightmove_prices >> silver_geography_dimension
