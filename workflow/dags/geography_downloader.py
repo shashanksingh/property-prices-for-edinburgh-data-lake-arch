@@ -6,7 +6,7 @@ import os
 download_geography_data_url = "https://api.os.uk/downloads/v1/products/OpenNames/downloads?area=GB&format=CSV&redirect"
 LOCAL_FILE_NAME = "opname_csv_gb.zip"
 EXECUTION_DATE = "2021-08-09/"
-DATA_FOLDER = "data/"
+DATA_FOLDER = "data/bronze/"
 
 
 def download_file(url: str, file_name: str):
