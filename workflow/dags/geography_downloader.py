@@ -5,7 +5,7 @@ import os
 
 download_geography_data_url = "https://api.os.uk/downloads/v1/products/OpenNames/downloads?area=GB&format=CSV&redirect"
 LOCAL_FILE_NAME = "opname_csv_gb.zip"
-EXECUTION_DATE = "2021-08-09/"
+EXECUTION_DATE = "2021-08-10/"
 DATA_FOLDER = "data/bronze/"
 
 
@@ -28,6 +28,9 @@ def remove_zip_file(file_name: str):
 
 
 def run():
-    download_file(download_geography_data_url, LOCAL_FILE_NAME)
-    unzip_file(LOCAL_FILE_NAME)
-    remove_zip_file(LOCAL_FILE_NAME)
+    try:
+        download_file(download_geography_data_url, LOCAL_FILE_NAME)
+        unzip_file(LOCAL_FILE_NAME)
+        remove_zip_file(LOCAL_FILE_NAME)
+    except requests.exceptions.RequestException as e:
+        print(e)
