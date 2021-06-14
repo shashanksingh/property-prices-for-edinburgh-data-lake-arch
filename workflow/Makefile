@@ -15,3 +15,9 @@ airflow-info:
 
 dev-destroy:
 	docker-compose down --volumes --rmi all
+
+clean:
+	 docker-compose run airflow-worker airflow dags delete property_prices_dag
+
+backfill:
+	docker-compose run airflow-worker airflow dags backfill property_prices_dag -s 2021-06-08 -e 2021-06-12
