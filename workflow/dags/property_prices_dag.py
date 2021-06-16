@@ -2,9 +2,13 @@
 Code that goes along with the Airflow tutorial located at:
 https://github.com/apache/airflow/blob/master/airflow/example_dags/tutorial.py
 """
+
 from airflow import DAG
 from airflow.operators.python_operator import PythonVirtualenvOperator
+from airflow.operators.dummy_operator import DummyOperator
+from airflow.contrib.sensors.file_sensor import FileSensor
 from datetime import datetime, timedelta
+import logging
 
 default_args = {
     'owner': 'airflow',
@@ -24,8 +28,6 @@ default_args = {
     'max_active_runs': 1,
 }
 
-dag = DAG('property_prices_dag', default_args=default_args)
-
 
 def geography_downloader_run(execution_date, **kwargs):
     import requests
@@ -41,76 +43,159 @@ def geography_downloader_run(execution_date, **kwargs):
     full_dir = Path(f'{data_path}/{execution_date_path}/')
     full_dir.mkdir(parents=True, exist_ok=True)
 
+    def is_file_exists(output_dir: str, file_name: str) -> bool:
+        return Path(f"{output_dir}/{file_name.split('.')[0]}").exists()
+
     def download_file(url: str, file_name: str):
         with requests.get(url, stream=True) as r:
             with open(file_name, 'wb') as f:
                 shutil.copyfileobj(r.raw, f)
-        print("download_file")
+        logging.info("download_file")
 
     def unzip_file(output_dir: str, file_name: str):
         with zipfile.ZipFile(file_name, "r") as zip_ref:
-            zip_ref.extractall(f"{output_dir}{file_name.split('.')[0]}")
+            zip_ref.extractall(f"{output_dir}/{file_name.split('.')[0]}")
 
     def remove_zip_file(file_name: str):
         if os.path.isfile(file_name):
             os.remove(file_name)
         else:
-            print(f"file doesnt exist {file_name}")
+            logging.info(f"file doesnt exist {file_name}")
 
-    download_file(download_geography_data_url, zipped_file_name)
-    unzip_file(full_dir, zipped_file_name)
-    remove_zip_file(zipped_file_name)
+    def make_success_file(output_dir: str):
+        success_file = f"{output_dir}/_SUCCESS"
+        Path(success_file).touch()
+
+    if not is_file_exists(full_dir, zipped_file_name):
+        download_file(download_geography_data_url, zipped_file_name)
+        unzip_file(full_dir, zipped_file_name)
+        remove_zip_file(zipped_file_name)
+    make_success_file(full_dir)
 
 
 def get_rightmove_prices_run(execution_date, **kwargs):
-    print(" get_rightmove_prices_run")
+    logging.info(" get_rightmove_prices_run")
     from rightmove_webscraper import RightmoveData
     from pathlib import Path
 
     rightmove_url = "https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE&locationIdentifier=REGION%5E94346"
     execution_date_path = f"{execution_date}"
-    data_path = "data/bronze"
+    data_path = "/opt/airflow/data/bronze"
     table_name = "property.csv"
-    full_dir = Path(f'{data_path}/{execution_date_path}/{table_name}')
+    full_dir = Path(f'{data_path}/{execution_date_path}/')
     full_dir.mkdir(parents=True, exist_ok=True)
 
     rm = RightmoveData(rightmove_url)
     df_property_prices = rm.get_results
-    df_property_prices.to_csv(f"{full_dir}")
+    df_property_prices.to_csv(f"{full_dir}/{table_name}")
 
 
 def silver_geography_dimension_run(execution_date, **kwargs):
+    from pathlib import Path
+    import glob
+    import os
+    import pandas as pd
+
     execution_date_path = f"{execution_date}/"
-    print(f"silver_geography_dimension {execution_date_path}")
+    logging.info(f"silver_geography_dimension {execution_date_path}")
+    execution_date_path = f"{execution_date}"
+    data_path = "/opt/airflow/data/silver"
+    table_name = "geography_dimension.csv"
+    full_dir = Path(f'{data_path}/{execution_date_path}/')
+    full_dir.mkdir(parents=True, exist_ok=True)
+    logging.info(f"silver_geography_dimension {full_dir}")
+
+    columns = ["ID", "NAMES_URI", "NAME1", "NAME1_LANG", "NAME2", "NAME2_LANG", "TYPE", "LOCAL_TYPE", "GEOMETRY_X",
+               "GEOMETRY_Y", "MOST_DETAIL_VIEW_RES", "LEAST_DETAIL_VIEW_RES", "MBR_XMIN", "MBR_YMIN", "MBR_XMAX",
+               "MBR_YMAX",
+               "POSTCODE_DISTRICT", "POSTCODE_DISTRICT_URI", "POPULATED_PLACE", "POPULATED_PLACE_URI",
+               "POPULATED_PLACE_TYPE",
+               "DISTRICT_BOROUGH", "DISTRICT_BOROUGH_URI", "DISTRICT_BOROUGH_TYPE", "COUNTY_UNITARY",
+               "COUNTY_UNITARY_URI",
+               "COUNTY_UNITARY_TYPE", "REGION", "REGION_URI", "COUNTRY", "COUNTRY_URI", "RELATED_SPATIAL_OBJECT",
+               "SAME_AS_DBPEDIA",
+               "SAME_AS_GEONAMES"
+               ]
+
+    files_to_read = glob.glob(os.path.join('', "data/bronze/2021-08-09/opname_csv_gb/DATA/SO*.csv"))
+
+    df_bronze_geography = pd.concat(map(lambda file: pd.read_csv(file, dtype={
+        "ID": str,
+        "NAMES_URI": str,
+        "NAME1": str,
+        "NAME1_LANG": str,
+        "NAME2": str,
+        "NAME2_LANG": str,
+        "TYPE": str,
+        "LOCAL_TYPE": str,
+        "GEOMETRY_X": int,
+        "GEOMETRY_Y": int,
+        "MOST_DETAIL_VIEW_RES": 'Int64',
+        "LEAST_DETAIL_VIEW_RES": 'Int64',
+        "MBR_XMIN": 'Int64',
+        "MBR_YMIN": 'Int64',
+        "MBR_XMAX": 'Int64',
+        "MBR_YMAX": 'Int64',
+        "POSTCODE_DISTRICT": str,
+        "POSTCODE_DISTRICT_URI": str,
+        "POPULATED_PLACE": str,
+        "POPULATED_PLACE_URI": str,
+        "POPULATED_PLACE_TYPE": str,
+        "DISTRICT_BOROUGH": str,
+        "DISTRICT_BOROUGH_URI": str,
+        "DISTRICT_BOROUGH_TYPE": str,
+        "COUNTY_UNITARY": str,
+        "COUNTY_UNITARY_URI": str,
+        "COUNTY_UNITARY_TYPE": str,
+        "REGION": str,
+        "REGION_URI": str,
+        "COUNTRY": str,
+        "COUNTRY_URI": str,
+        "RELATED_SPATIAL_OBJECT": str,
+        "SAME_AS_DBPEDIA": str,
+        "SAME_AS_GEONAMES": str
+    }, names=columns), files_to_read))
+
+    df_bronze_geography = df_bronze_geography[["ID", "NAME1", "POSTCODE_DISTRICT"]]
+    df_bronze_geography = df_bronze_geography.rename(
+        columns={"ID": "geography_dimension_id", "POSTCODE_DISTRICT": "postcode", "NAME1": "name"})
+    df_bronze_geography.to_csv(f"{full_dir}/{table_name}")
 
 
-geography_downloader = PythonVirtualenvOperator(
-    task_id='geography_downloader',
-    python_callable=geography_downloader_run,
-    requirements=["requests==2.22.0", "pandas"],
-    system_site_packages=False,
-    provide_context=True,
-    op_kwargs={'execution_date': '{{ execution_date }}', },
-    dag=dag)
+with DAG('property_prices_dag', default_args=default_args) as dag:
+    start_task = DummyOperator(task_id='start')
 
-get_rightmove_prices = PythonVirtualenvOperator(
-    task_id='get_rightmove_prices',
-    python_callable=get_rightmove_prices_run,
-    requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
-    system_site_packages=False,
-    provide_context=True,
-    op_kwargs={'execution_date': '{{ execution_date }}', },
-    dag=dag)
+    if_geography_downloader_file_exist_task = FileSensor(
+        task_id="if_geography_downloader_file_exist_task",
+        filepath="/opt/airflow/data/bronze/{{execution_date}}/opname_csv_gb/DATA/HP40.csv",
+        # fs_conn_id="fs_default" # default one, commented because not needed
+        poke_interval=20)
 
-# need to put sensors here
-silver_geography_dimension = PythonVirtualenvOperator(
-    task_id='silver_geography_dimension',
-    python_callable=silver_geography_dimension_run,
-    requirements=["pandas"],
-    system_site_packages=False,
-    provide_context=True,
-    op_kwargs={'execution_date': '{{ execution_date }}', },
-    dag=dag)
+    geography_downloader_task = PythonVirtualenvOperator(
+        task_id='geography_downloader',
+        python_callable=geography_downloader_run,
+        requirements=["requests==2.22.0", "pandas"],
+        system_site_packages=False,
+        provide_context=True,
+        op_kwargs={'execution_date': '{{ execution_date }}', })
 
-# check if file exists, if not download
-geography_downloader.set_downstream([get_rightmove_prices, silver_geography_dimension])
+    get_rightmove_prices_task = PythonVirtualenvOperator(
+        task_id='get_rightmove_prices',
+        python_callable=get_rightmove_prices_run,
+        requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
+        system_site_packages=False,
+        provide_context=True,
+        op_kwargs={'execution_date': '{{ execution_date }}', })
+
+    silver_geography_dimension_task = PythonVirtualenvOperator(
+        task_id='silver_geography_dimension',
+        python_callable=silver_geography_dimension_run,
+        requirements=["pandas"],
+        system_site_packages=False,
+        provide_context=True,
+        op_kwargs={'execution_date': '{{ execution_date }}', })
+
+    # check if file exists, if not download
+    start_task \
+    >> [get_rightmove_prices_task, geography_downloader_task, if_geography_downloader_file_exist_task] \
+    >> silver_geography_dimension_task
