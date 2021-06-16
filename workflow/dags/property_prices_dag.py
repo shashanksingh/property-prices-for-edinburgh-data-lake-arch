@@ -8,7 +8,6 @@ from airflow.operators.python_operator import PythonVirtualenvOperator
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.file_sensor import FileSensor
 from datetime import datetime, timedelta
-import logging
 
 default_args = {
     'owner': 'airflow',
@@ -34,6 +33,7 @@ def geography_downloader_run(execution_date, **kwargs):
     import shutil
     import zipfile
     import os
+    import logging
     from pathlib import Path
 
     download_geography_data_url = "https://api.os.uk/downloads/v1/products/OpenNames/downloads?area=GB&format=CSV&redirect"
@@ -74,10 +74,11 @@ def geography_downloader_run(execution_date, **kwargs):
 
 
 def get_rightmove_prices_run(execution_date, **kwargs):
-    logging.info(" get_rightmove_prices_run")
     from rightmove_webscraper import RightmoveData
     from pathlib import Path
+    import logging
 
+    logging.info(" get_rightmove_prices_run")
     rightmove_url = "https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE&locationIdentifier=REGION%5E94346"
     execution_date_path = f"{execution_date}"
     data_path = "/opt/airflow/data/bronze"
@@ -95,6 +96,7 @@ def silver_geography_dimension_run(execution_date, **kwargs):
     import glob
     import os
     import pandas as pd
+    import logging
 
     execution_date_path = f"{execution_date}/"
     logging.info(f"silver_geography_dimension {execution_date_path}")
@@ -117,7 +119,7 @@ def silver_geography_dimension_run(execution_date, **kwargs):
                "SAME_AS_GEONAMES"
                ]
 
-    files_to_read = glob.glob(os.path.join('', "data/bronze/2021-08-09/opname_csv_gb/DATA/SO*.csv"))
+    files_to_read = glob.glob(os.path.join('', f"/opt/airflow/data/bronze/{execution_date_path}/opname_csv_gb/DATA/SO*.csv"))
 
     df_bronze_geography = pd.concat(map(lambda file: pd.read_csv(file, dtype={
         "ID": str,
@@ -165,12 +167,6 @@ def silver_geography_dimension_run(execution_date, **kwargs):
 with DAG('property_prices_dag', default_args=default_args) as dag:
     start_task = DummyOperator(task_id='start')
 
-    if_geography_downloader_file_exist_task = FileSensor(
-        task_id="if_geography_downloader_file_exist_task",
-        filepath="/opt/airflow/data/bronze/{{execution_date}}/opname_csv_gb/DATA/HP40.csv",
-        # fs_conn_id="fs_default" # default one, commented because not needed
-        poke_interval=20)
-
     geography_downloader_task = PythonVirtualenvOperator(
         task_id='geography_downloader',
         python_callable=geography_downloader_run,
@@ -197,5 +193,5 @@ with DAG('property_prices_dag', default_args=default_args) as dag:
 
     # check if file exists, if not download
     start_task \
-    >> [get_rightmove_prices_task, geography_downloader_task, if_geography_downloader_file_exist_task] \
+    >> [get_rightmove_prices_task, geography_downloader_task] \
     >> silver_geography_dimension_task
