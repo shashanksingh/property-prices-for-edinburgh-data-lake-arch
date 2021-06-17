@@ -2,6 +2,7 @@
 Code that goes along with the Airflow tutorial located at:
 https://github.com/apache/airflow/blob/master/airflow/example_dags/tutorial.py
 """
+from typing import List
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonVirtualenvOperator
@@ -25,6 +26,7 @@ default_args = {
     'schedule_interval': '@daily',
     'concurrency': 1,
     'max_active_runs': 1,
+    'schedule_after_task_execution': False,
 }
 
 
@@ -73,13 +75,14 @@ def geography_downloader_run(execution_date, **kwargs):
     make_success_file(full_dir)
 
 
-def get_rightmove_prices_run(execution_date, **kwargs):
+def get_rightmove_prices_run(execution_date, region_code, **kwargs):
     from rightmove_webscraper import RightmoveData
     from pathlib import Path
     import logging
+    #region_code = kwargs['region_code']
 
     logging.info(" get_rightmove_prices_run")
-    rightmove_url = "https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE&locationIdentifier=REGION%5E94346"
+    rightmove_url = f"https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=POSTCODE^{region_code}&radius=30.0&propertyTypes=&mustHave=&dontShow=&furnishTypes=&keywords="
     execution_date_path = f"{execution_date}"
     data_path = "/opt/airflow/data/bronze"
     table_name = "property.csv"
@@ -119,7 +122,8 @@ def silver_geography_dimension_run(execution_date, **kwargs):
                "SAME_AS_GEONAMES"
                ]
 
-    files_to_read = glob.glob(os.path.join('', f"/opt/airflow/data/bronze/{execution_date_path}/opname_csv_gb/DATA/SO*.csv"))
+    files_to_read = glob.glob(
+        os.path.join('', f"/opt/airflow/data/bronze/{execution_date_path}/opname_csv_gb/DATA/HP40.csv"))
 
     df_bronze_geography = pd.concat(map(lambda file: pd.read_csv(file, dtype={
         "ID": str,
@@ -164,34 +168,51 @@ def silver_geography_dimension_run(execution_date, **kwargs):
     df_bronze_geography.to_csv(f"{full_dir}/{table_name}")
 
 
+def all_region_code():
+    return [region_code for region_code in range(1, 2)]
+
+
 with DAG('property_prices_dag', default_args=default_args) as dag:
     start_task = DummyOperator(task_id='start')
 
-    geography_downloader_task = PythonVirtualenvOperator(
-        task_id='geography_downloader',
-        python_callable=geography_downloader_run,
-        requirements=["requests==2.22.0", "pandas"],
-        system_site_packages=False,
-        provide_context=True,
-        op_kwargs={'execution_date': '{{ execution_date }}', })
+    # geography_downloader_task = PythonVirtualenvOperator(
+    #     task_id='geography_downloader',
+    #     python_callable=geography_downloader_run,
+    #     requirements=["requests==2.22.0", "pandas"],
+    #     system_site_packages=False,
+    #     provide_context=True,
+    #     op_kwargs={'execution_date': '{{ execution_date }}', })
 
-    get_rightmove_prices_task = PythonVirtualenvOperator(
-        task_id='get_rightmove_prices',
-        python_callable=get_rightmove_prices_run,
-        requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
-        system_site_packages=False,
-        provide_context=True,
-        op_kwargs={'execution_date': '{{ execution_date }}', })
+    # get_rightmove_prices_task = PythonVirtualenvOperator(
+    #     task_id='get_rightmove_prices',
+    #     python_callable=get_rightmove_prices_run,
+    #     requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
+    #     system_site_packages=False,
+    #     provide_context=True,
+    #     op_kwargs={'execution_date': '{{ execution_date }}', })
 
-    silver_geography_dimension_task = PythonVirtualenvOperator(
-        task_id='silver_geography_dimension',
-        python_callable=silver_geography_dimension_run,
-        requirements=["pandas"],
-        system_site_packages=False,
-        provide_context=True,
-        op_kwargs={'execution_date': '{{ execution_date }}', })
 
-    # check if file exists, if not download
-    start_task \
-    >> [get_rightmove_prices_task, geography_downloader_task] \
-    >> silver_geography_dimension_task
+
+    def group(number, **kwargs):
+        # load the values if needed in the command you plan to execute
+        dyn_value = "{{ task_instance.xcom_pull(task_ids='push_func') }}"
+        return PythonVirtualenvOperator(
+            task_id='get_rightmove_prices{}'.format(number),
+            python_callable=get_rightmove_prices_run,
+            requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
+            system_site_packages=False,
+            provide_context=True,
+            op_kwargs={'execution_date': '{{ execution_date }}', 'region_code': number},)
+
+
+    push_func = PythonVirtualenvOperator(
+        task_id='push_func',
+        provide_context=True,
+        python_callable=all_region_code, )
+
+    end_task = DummyOperator(task_id='end')
+
+    start_task >> push_func
+
+    for i in all_region_code():
+        push_func >> group(i) >> end_task
