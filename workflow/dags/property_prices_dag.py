@@ -7,7 +7,6 @@ from typing import List
 from airflow import DAG
 from airflow.operators.python_operator import PythonVirtualenvOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.contrib.sensors.file_sensor import FileSensor
 from datetime import datetime, timedelta
 
 default_args = {
@@ -79,10 +78,10 @@ def get_rightmove_prices_run(execution_date, region_code, **kwargs):
     from rightmove_webscraper import RightmoveData
     from pathlib import Path
     import logging
-    #region_code = kwargs['region_code']
+    # region_code = kwargs['region_code']
 
     logging.info(" get_rightmove_prices_run")
-    rightmove_url = f"https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=POSTCODE^{region_code}&radius=30.0&propertyTypes=&mustHave=&dontShow=&furnishTypes=&keywords="
+    rightmove_url = f"https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier=POSTCODE^{region_code}&radius=5.0&propertyTypes=&mustHave=&dontShow=&furnishTypes=&keywords="
     execution_date_path = f"{execution_date}"
     data_path = "/opt/airflow/data/bronze"
     table_name = "property.csv"
@@ -168,12 +167,20 @@ def silver_geography_dimension_run(execution_date, **kwargs):
     df_bronze_geography.to_csv(f"{full_dir}/{table_name}")
 
 
+# should be replaced with human curated data
+# SCD
 def all_region_code():
-    return [region_code for region_code in range(1, 2)]
+    return ['4080771', '4632255',
+            '280682', '1475548', '280684']
 
+
+# '1475549', '280685', '280686',
+#            '1328515', '280687', '280688', '4106340', '280690', '1475550', '280691', '280692', '280693',
+#            '280694', '1475551'
 
 with DAG('property_prices_dag', default_args=default_args) as dag:
     start_task = DummyOperator(task_id='start')
+
 
     # geography_downloader_task = PythonVirtualenvOperator(
     #     task_id='geography_downloader',
@@ -183,26 +190,16 @@ with DAG('property_prices_dag', default_args=default_args) as dag:
     #     provide_context=True,
     #     op_kwargs={'execution_date': '{{ execution_date }}', })
 
-    # get_rightmove_prices_task = PythonVirtualenvOperator(
-    #     task_id='get_rightmove_prices',
-    #     python_callable=get_rightmove_prices_run,
-    #     requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
-    #     system_site_packages=False,
-    #     provide_context=True,
-    #     op_kwargs={'execution_date': '{{ execution_date }}', })
-
-
-
     def group(number, **kwargs):
         # load the values if needed in the command you plan to execute
         dyn_value = "{{ task_instance.xcom_pull(task_ids='push_func') }}"
         return PythonVirtualenvOperator(
-            task_id='get_rightmove_prices{}'.format(number),
+            task_id='get_rightmove_prices_{}'.format(number),
             python_callable=get_rightmove_prices_run,
             requirements=["rightmove-webscraper", "requests==2.22.0", "pandas"],
             system_site_packages=False,
             provide_context=True,
-            op_kwargs={'execution_date': '{{ execution_date }}', 'region_code': number},)
+            op_kwargs={'execution_date': '{{ execution_date }}', 'region_code': number}, )
 
 
     push_func = PythonVirtualenvOperator(
@@ -214,5 +211,5 @@ with DAG('property_prices_dag', default_args=default_args) as dag:
 
     start_task >> push_func
 
-    for i in all_region_code():
-        push_func >> group(i) >> end_task
+    for region_code in all_region_code():
+        push_func >> group(region_code) >> end_task
