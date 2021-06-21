@@ -90,7 +90,9 @@ def get_rightmove_prices_run(execution_date, region_code, **kwargs):
 
     rm = RightmoveData(rightmove_url)
     df_property_prices = rm.get_results
-    df_property_prices.to_csv(f"{full_dir}/{table_name}")
+    filename = f"{full_dir}/{table_name}"
+    is_file_exists = Path(filename).exists()
+    df_property_prices.to_csv(filename, header=not is_file_exists, mode='a' if is_file_exists else 'w')
 
 
 def silver_geography_dimension_run(execution_date, **kwargs):
