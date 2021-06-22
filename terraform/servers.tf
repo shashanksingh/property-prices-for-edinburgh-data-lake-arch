@@ -24,12 +24,12 @@ resource "aws_instance" "airflow" {
 //    destination = "$HOME/code"
 //
 //  }
-  user_data = <<EO.terraform.tfstate.lock.infoF
+  user_data = <<EOF
 #!/bin/sh
 sudo apt-get update
 sudo apt-get install -y docker-compose
 EOF
-
+  
   tags={
     Name = "product"
     Environment = "production"
