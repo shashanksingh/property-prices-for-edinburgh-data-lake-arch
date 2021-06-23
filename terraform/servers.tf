@@ -39,14 +39,14 @@ resource "aws_instance" "airflow" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p $HOME/code/logs $HOME/code/plugins",
-      "echo \"AIRFLOW_UID=$(shell id -u)\nAIRFLOW_GID=0\" > $HOME/code/.env",
+      "echo -e \"AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0\" > $HOME/code/.env",
       "sudo yum update -y",
       "sudo amazon-linux-extras install -y docker",
       "sudo service docker start",
       "sudo usermod -a -G docker ec2-user",
       "sudo chkconfig docker on",
       "sudo yum install -y git",
-      "sudo curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
+      "sudo curl -L https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
       "sudo chmod +x /usr/local/bin/docker-compose",
       "cd $HOME/code && docker-compose up"
     ]
