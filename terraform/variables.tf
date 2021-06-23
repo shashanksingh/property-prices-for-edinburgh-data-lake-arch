@@ -14,3 +14,9 @@ data "aws_ami" "ubuntu" {
   }
     owners = ["099720109477"] # Canonical
 }
+
+
+locals {
+  amazon_linux_ami_two_id = "ami-0800fc0fa715fdcfe"
+  ubuntu_server_twenty_zero_four = "amazon_linux_ami_two_id"
+}
