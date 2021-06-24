@@ -2,7 +2,7 @@
 a cloud agnostic data lake , with scraped house prices . Uses terraform, puppet, scrappy 
 
 Phases
-* Phase 1: ( terraform + puppet + ec2 + airflow setup ) : https://github.com/shashanksingh/property-prices-for-edinburgh-data-lake-arch/releases/tag/v1.0
+* Phase 1: a really adhoc version with all sorts of hackiness. Made with love using terraform + puppet + ec2 + airflow. https://github.com/shashanksingh/property-prices-for-edinburgh-data-lake-arch/releases/tag/v1.0
 * Phase 2 : ( terraform + airflow + ecs for jobs )
 * Phase 3 : ( s3 delta lake )
 * Phase 4: ( airflow jobs write into delta lake )
