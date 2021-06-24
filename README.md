@@ -1,4 +1,4 @@
-# property-prices-for-edinburgh-data-lake-arch
+# Property Prices in Edinburgh, Made available in data lake for notebooks
 a cloud agnostic data lake , with scraped house prices . Uses terraform, puppet, scrappy 
 
 Phases
