@@ -63,6 +63,25 @@ x-airflow-common:
       condition: service_healthy
 
 services:
+#  nginx:
+#    image: nginx:mainline
+#    container_name: nginx
+#    ports:
+#      # Make the http/https ports available on the Docker host IPv4 loopback interface
+#      - '127.0.0.1:80:80'
+#      - '127.0.0.1:443:443'
+#    volumes:
+#      - /etc/nginx/conf.d
+#      - /etc/nginx/vhost.d
+#      - /usr/share/nginx/html
+#    healthcheck:
+#      test: ["CMD", "service", "nginx", "status"]
+#      interval: 1m
+#      timeout: 30s
+#      retries: 50
+#    restart: always
+
+
   postgres:
     image: postgres:13
     environment:

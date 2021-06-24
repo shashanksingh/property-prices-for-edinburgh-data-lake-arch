@@ -1,6 +1,6 @@
 resource "aws_instance" "airflow" {
   ami = local.amazon_linux_ami_two_id
-  instance_type = "t3.micro"
+  instance_type = "t3.medium"
   associate_public_ip_address = true
   key_name = aws_key_pair.terraform-keys2.key_name
   subnet_id = aws_subnet.subnet-uno.id
@@ -36,25 +36,29 @@ resource "aws_instance" "airflow" {
     destination = "$HOME/code/Makefile"
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "mkdir -p $HOME/code/logs $HOME/code/plugins",
-      "echo -e \"AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0\" > $HOME/code/.env",
-      "sudo yum update -y",
-      "sudo amazon-linux-extras install -y docker",
-      "sudo service docker start",
-      "sudo usermod -a -G docker ec2-user",
-      "sudo chkconfig docker on",
-      "sudo yum install -y git",
-      "sudo curl -L https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
-      "sudo chmod +x /usr/local/bin/docker-compose",
-      "cd $HOME/code && docker-compose up"
-    ]
-  }
+    provisioner "remote-exec" {
+      inline = [
+        "echo -e \"AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0\" > $HOME/code/.env",
+        "mkdir -p $HOME/code/logs $HOME/code/plugins",
+        "sudo chkconfig docker on",
+        "sudo curl -L https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose",
+        "sudo chmod +x /usr/local/bin/docker-compose",
+        "cd $HOME/code && docker-compose up airflow-init",
+        "cd $HOME/code && docker-compose up -d"
+      ]
+    }
 
-//  user_data = <<EOF
-//#!/bin/sh
-//EOF
+  user_data = <<EOF
+#!/bin/bash
+
+sudo yum update -y
+sudo amazon-linux-extras install -y docker
+sudo service docker start
+sudo usermod -aG docker $USER
+sudo chkconfig docker on
+sudo yum install -y git
+newgrp docker
+EOF
 
   tags={
     Name = "product"
